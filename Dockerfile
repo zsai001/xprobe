@@ -13,6 +13,7 @@ FROM alpine:latest
 WORKDIR /app
 
 COPY --from=builder /app/main .
+COPY --from=builder /app/html ./html
 
 # 设置 MongoDB 连接 URI 环境变量
 ENV MONGO_URI=mongodb://mongodb:27017
