@@ -27,7 +27,7 @@ XProb 是一个高效、轻量级的多平台服务器探针程序,用于实时�
 1. 克隆仓库:
 
    ```
-   git clone https://github.com/your-username/xprob.git
+   git clone https://github.com/zsai001/xprob.git
    cd xprob
    ```
 
