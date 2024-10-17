@@ -17,7 +17,11 @@ import (
 )
 
 func main() {
-	err := db.Init("mongodb://localhost:27017")
+	mongoURI := os.Getenv("MONGO_URI")
+	if mongoURI == "" {
+		mongoURI = "mongodb://localhost:27017" // 默认值
+	}
+	err := db.Init(mongoURI)
 	if err != nil {
 		panic(err)
 	}

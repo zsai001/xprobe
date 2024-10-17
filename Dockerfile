@@ -14,6 +14,9 @@ WORKDIR /app
 
 COPY --from=builder /app/main .
 
+# 设置 MongoDB 连接 URI 环境变量
+ENV MONGO_URI=mongodb://mongodb:27017
+
 EXPOSE 8080
 
 CMD ["./main"]
