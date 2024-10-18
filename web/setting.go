@@ -57,7 +57,6 @@ func getDefaultSettings(c *gin.Context) Setting {
 			SiteTitle: "XProb",
 			MenuItems: []MenuItem{},
 		},
-		Add:       GetAddSetting(c),
 		UpdatedAt: time.Now(),
 	}
 }
@@ -75,6 +74,7 @@ func SettingGet(c *gin.Context) {
 		if err == mongo.ErrNoDocuments {
 			// 如果没有找到设置，返回默认设置
 			setting = getDefaultSettings(c)
+			setting.Add = GetAddSetting(c)
 			c.JSON(http.StatusOK, setting)
 			return
 		}
@@ -83,7 +83,7 @@ func SettingGet(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch settings"})
 		return
 	}
-
+	setting.Add = GetAddSetting(c)
 	// 返回找到的设置
 	c.JSON(http.StatusOK, setting)
 }

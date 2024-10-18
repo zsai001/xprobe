@@ -34,7 +34,7 @@ XProb 是一个高效、轻量级的多平台服务器探针程序,用于实时�
 2. 启动服务端:
 
    ```
-   docker-compose up -d
+   sh start.sh
    ```
 
 3. 安装客户端:

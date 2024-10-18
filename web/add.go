@@ -17,10 +17,16 @@ import (
 func GetAddSetting(c *gin.Context) AddSetting {
 	hostname := c.Request.Host
 
+	scheme := "http"
+	if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
+		scheme = "https"
+	}
+
 	baseURL := url.URL{
-		Scheme: "http",
+		Scheme: scheme,
 		Host:   hostname,
 	}
+
 	cc := db.MG.CC("prob", "node")
 	token, err := createOrGetUnboundToken(cc.Collection)
 	if err != nil {

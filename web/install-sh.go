@@ -2,8 +2,9 @@ package web
 
 import (
 	"fmt"
-	"github.com/gin-gonic/gin"
 	"text/template"
+
+	"github.com/gin-gonic/gin"
 )
 
 type ScriptData struct {
@@ -21,22 +22,22 @@ func InstallSh(c *gin.Context) {
 
 var bashTemplate = template.Must(template.New("bash").Parse(`#!/bin/bash
 
-# XPorb Client Installation Script
+# XPorb Agent Installation Script
 # Supports Linux, macOS, and Windows (via WSL or Git Bash)
 
-XPORB_SERVER="{{.ServerURL}}"
-XPORB_KEY="$1"
+XPROB_SERVER="{{.ServerURL}}"
+XPROB_KEY="$1"
 
 if [ -z "$XPORB_KEY" ]; then
     echo "Error: XPorb key not provided"
     exit 1
 fi
 
-# Detect OS
+# Detect OS and architecture
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
     OS="linux"
 elif [[ "$OSTYPE" == "darwin"* ]]; then
-    OS="macos"
+    OS="darwin"
 elif [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" ]]; then
     OS="windows"
 else
@@ -44,26 +45,40 @@ else
     exit 1
 fi
 
-# Download XPorb client
-echo "Downloading XPorb client for $OS..."
-curl -fsSL "$XPORB_SERVER/xporb-client-$OS" -o xporb-client
+ARCH=$(uname -m)
+case $ARCH in
+    x86_64)
+        ARCH="amd64"
+        ;;
+    aarch64|arm64)
+        ARCH="arm64"
+        ;;
+    *)
+        echo "Unsupported architecture: $ARCH"
+        exit 1
+        ;;
+esac
 
-# Make client executable
-chmod +x xporb-client
+# Download XPorb agent
+echo "Downloading XPorb agent for $OS/$ARCH..."
+curl -fsSL "$XPORB_SERVER/agent/$OS/$ARCH/xprob_agent" -o xprob_agent
 
-# Install client
-if [[ "$OS" == "linux" || "$OS" == "macos" ]]; then
-    sudo mv xporb-client /usr/local/bin/xporb-client
+# Make agent executable
+chmod +x xprob_agent
+
+# Install agent
+if [[ "$OS" == "linux" || "$OS" == "darwin" ]]; then
+    sudo mv xprob_agent /usr/local/bin/xprob_agent
 
     # Create systemd service for Linux
     if [[ "$OS" == "linux" ]]; then
         cat << EOF | sudo tee /etc/systemd/system/xporb.service
 [Unit]
-Description=XPorb Client Service
+Description=XPorb Agent Service
 After=network.target
 
 [Service]
-ExecStart=/usr/local/bin/xporb-client $XPORB_KEY
+ExecStart=/usr/local/bin/xprob_agent $XPORB_KEY
 Restart=always
 User=root
 
@@ -76,17 +91,17 @@ EOF
         sudo systemctl start xporb.service
 
     # Create launchd service for macOS
-    elif [[ "$OS" == "macos" ]]; then
-        cat << EOF | sudo tee /Library/LaunchDaemons/com.xporb.client.plist
+    elif [[ "$OS" == "darwin" ]]; then
+        cat << EOF | sudo tee /Library/LaunchDaemons/com.xporb.agent.plist
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.xporb.client</string>
+    <string>com.xprob.agent</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/local/bin/xporb-client</string>
+        <string>/usr/local/bin/xprob_agent</string>
         <string>$XPORB_KEY</string>
     </array>
     <key>RunAtLoad</key>
@@ -97,21 +112,21 @@ EOF
 </plist>
 EOF
 
-        sudo launchctl load /Library/LaunchDaemons/com.xporb.client.plist
+        sudo launchctl load /Library/LaunchDaemons/com.xporb.agent.plist
     fi
 
 elif [[ "$OS" == "windows" ]]; then
     mkdir -p "$USERPROFILE/XPorb"
-    mv xporb-client "$USERPROFILE/XPorb/xporb-client.exe"
+    mv xprob_agent "$USERPROFILE/XPorb/xprob_agent.exe"
 
     # Create scheduled task for Windows
     powershell -Command "
-        \$action = New-ScheduledTaskAction -Execute '$USERPROFILE\XPorb\xporb-client.exe' -Argument '$XPORB_KEY'
+        \$action = New-ScheduledTaskAction -Execute '$USERPROFILE\XPorb\xprob_agent.exe' -Argument '$XPORB_KEY'
         \$trigger = New-ScheduledTaskTrigger -AtStartup
         \$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -RestartInterval (New-TimeSpan -Minutes 1) -RestartCount 3
-        Register-ScheduledTask -TaskName 'XPorb Client' -Action \$action -Trigger \$trigger -Settings \$settings -RunLevel Highest -Force
+        Register-ScheduledTask -TaskName 'XPorb Agent' -Action \$action -Trigger \$trigger -Settings \$settings -RunLevel Highest -Force
     "
 fi
 
-echo "XPorb client installed successfully!"
+echo "XPorb agent installed successfully!"
 `))
