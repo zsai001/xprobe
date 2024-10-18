@@ -22,14 +22,14 @@ func InstallSh(c *gin.Context) {
 
 var bashTemplate = template.Must(template.New("bash").Parse(`#!/bin/bash
 
-# XPorb Agent Installation Script
+# XProbe Agent Installation Script
 # Supports Linux, macOS, and Windows (via WSL or Git Bash)
 
-XPROB_SERVER="{{.ServerURL}}"
-XPROB_KEY="$1"
+XPROBE_SERVER="{{.ServerURL}}"
+XPROBE_KEY="$1"
 
-if [ -z "$XPORB_KEY" ]; then
-    echo "Error: XPorb key not provided"
+if [ -z "$XPROBE_KEY" ]; then
+    echo "错误: 未提供 XProbe 密钥"
     exit 1
 fi
 
@@ -41,7 +41,7 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
 elif [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" ]]; then
     OS="windows"
 else
-    echo "Unsupported operating system"
+    echo "不支持的操作系统"
     exit 1
 fi
 
@@ -54,31 +54,31 @@ case $ARCH in
         ARCH="arm64"
         ;;
     *)
-        echo "Unsupported architecture: $ARCH"
+        echo "不支持的架构: $ARCH"
         exit 1
         ;;
 esac
 
-# Download XPorb agent
-echo "Downloading XPorb agent for $OS/$ARCH..."
-curl -fsSL "$XPORB_SERVER/agent/$OS/$ARCH/xprob_agent" -o xprob_agent
+# Download XProbe agent
+echo "正在下载 XProbe agent ($OS/$ARCH)..."
+curl -fsSL "$XPROBE_SERVER/agent/$OS/$ARCH/xprobe_agent" -o xprobe_agent
 
 # Make agent executable
-chmod +x xprob_agent
+chmod +x xprobe_agent
 
 # Install agent
 if [[ "$OS" == "linux" || "$OS" == "darwin" ]]; then
-    sudo mv xprob_agent /usr/local/bin/xprob_agent
+    sudo mv xprobe_agent /usr/local/bin/xprobe_agent
 
     # Create systemd service for Linux
     if [[ "$OS" == "linux" ]]; then
-        cat << EOF | sudo tee /etc/systemd/system/xporb.service
+        cat << EOF | sudo tee /etc/systemd/system/xprobe.service
 [Unit]
-Description=XPorb Agent Service
+Description=XProbe Agent Service
 After=network.target
 
 [Service]
-ExecStart=/usr/local/bin/xprob_agent $XPORB_KEY
+ExecStart=/usr/local/bin/xprobe_agent $XPROBE_SERVER $XPROBE_KEY
 Restart=always
 User=root
 
@@ -87,22 +87,23 @@ WantedBy=multi-user.target
 EOF
 
         sudo systemctl daemon-reload
-        sudo systemctl enable xporb.service
-        sudo systemctl start xporb.service
+        sudo systemctl enable xprobe.service
+        sudo systemctl start xprobe.service
 
     # Create launchd service for macOS
     elif [[ "$OS" == "darwin" ]]; then
-        cat << EOF | sudo tee /Library/LaunchDaemons/com.xporb.agent.plist
+        cat << EOF | sudo tee /Library/LaunchDaemons/com.xprobe.agent.plist
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.xprob.agent</string>
+    <string>com.xprobe.agent</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/local/bin/xprob_agent</string>
-        <string>$XPORB_KEY</string>
+        <string>/usr/local/bin/xprobe_agent</string>
+        <string>$XPROBE_SERVER</string>
+        <string>$XPROBE_KEY</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
@@ -112,21 +113,21 @@ EOF
 </plist>
 EOF
 
-        sudo launchctl load /Library/LaunchDaemons/com.xporb.agent.plist
+        sudo launchctl load /Library/LaunchDaemons/com.xprobe.agent.plist
     fi
 
 elif [[ "$OS" == "windows" ]]; then
-    mkdir -p "$USERPROFILE/XPorb"
-    mv xprob_agent "$USERPROFILE/XPorb/xprob_agent.exe"
+    mkdir -p "$USERPROFILE/XProbe"
+    mv xprobe_agent "$USERPROFILE/XProbe/xprobe_agent.exe"
 
     # Create scheduled task for Windows
     powershell -Command "
-        \$action = New-ScheduledTaskAction -Execute '$USERPROFILE\XPorb\xprob_agent.exe' -Argument '$XPORB_KEY'
+        \$action = New-ScheduledTaskAction -Execute '$USERPROFILE\XProbe\xprobe_agent.exe' -Argument '$XPROBE_SERVER $XPROBE_KEY'
         \$trigger = New-ScheduledTaskTrigger -AtStartup
         \$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -RestartInterval (New-TimeSpan -Minutes 1) -RestartCount 3
-        Register-ScheduledTask -TaskName 'XPorb Agent' -Action \$action -Trigger \$trigger -Settings \$settings -RunLevel Highest -Force
+        Register-ScheduledTask -TaskName 'XProbe Agent' -Action \$action -Trigger \$trigger -Settings \$settings -RunLevel Highest -Force
     "
 fi
 
-echo "XPorb agent installed successfully!"
+echo "XProbe agent 安装成功!"
 `))

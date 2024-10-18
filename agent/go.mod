@@ -1,4 +1,4 @@
-module xprob_agent
+module xprobe_agent
 
 go 1.23.2
 

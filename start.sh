@@ -51,9 +51,9 @@ compile_agent() {
         mkdir -p "$output_dir"
         
         if [ "$os" == "windows" ]; then
-            output_name="xprob_agent.exe"
+            output_name="xprobe_agent.exe"
         else
-            output_name="xprob_agent"
+            output_name="xprobe_agent"
         fi
         
         GOOS=$os GOARCH=$arch go build -o "$output_dir/$output_name" .
@@ -79,10 +79,10 @@ start_project() {
 
 # 主函数
 main() {
-    check_docker
-    check_docker_compose
+#    check_docker
+#    check_docker_compose
     compile_agent
-    start_project
+#    start_project
 }
 
 # 运行主函数

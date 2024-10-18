@@ -17,17 +17,17 @@ func InstallCmd(c *gin.Context) {
 }
 
 var cmdTemplate = template.Must(template.New("cmd").Parse(`@echo off
-:: XPorb Agent Windows Installation Script
+:: XProbe Agent Windows Installation Script
 
 if "%1"=="" (
-    echo Error: XPorb key not provided
+    echo Error: XProbe key not provided
     exit /b 1
 )
 
-set XPORB_SERVER={{.ServerURL}}
-set XPORB_KEY=%1
-set INSTALL_DIR=%ProgramFiles%\XProb
-set EXECUTABLE=%INSTALL_DIR%\xprob_agent.exe
+set XPROBE_SERVER={{.ServerURL}}
+set XPROBE_KEY=%1
+set INSTALL_DIR=%ProgramFiles%\XProbe
+set EXECUTABLE=%INSTALL_DIR%\xprobe_agent.exe
 
 :: Detect architecture
 if "%PROCESSOR_ARCHITECTURE%"=="AMD64" (
@@ -39,15 +39,15 @@ if "%PROCESSOR_ARCHITECTURE%"=="AMD64" (
 :: Create installation directory
 if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
 
-:: Download XPorb agent
-echo Downloading XPorb agent...
-powershell -Command "& {Invoke-WebRequest -Uri '%XPORB_SERVER%/agent/windows/%ARCH%/xprob_agent' -OutFile '%EXECUTABLE%'}"
+:: Download XProbe agent
+echo Downloading XProbe agent...
+powershell -Command "& {Invoke-WebRequest -Uri '%XPROBE_SERVER%/agent/windows/%ARCH%/xprobe_agent' -OutFile '%EXECUTABLE%'}"
 
 :: Create a scheduled task to run at startup
-schtasks /create /tn "XProb Agent" /tr "'%EXECUTABLE%' %XPORB_KEY%" /sc onstart /ru SYSTEM /rl HIGHEST /f
+schtasks /create /tn "XProbe Agent" /tr "'%EXECUTABLE%' %XPROBE_SERVER% %XPROBE_KEY%" /sc onstart /ru SYSTEM /rl HIGHEST /f
 
 :: Start the agent immediately
-start "" "%EXECUTABLE%" %XPORB_KEY%
+start "" "%EXECUTABLE%" %XPROBE_SERVER% %XPROBE_KEY%
 
-echo XProb agent installed successfully!
+echo XProbe agent installed successfully!
 `))
