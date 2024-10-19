@@ -1,7 +1,7 @@
 
-# XProb 服务器探针
+# XProbe 服务器探针
 
-XProb 是一个高效、轻量级的多平台服务器探针程序,用于实时监控和管理多个服务器的性能指标。
+XProbe 是一个高效、轻量级的多平台服务器探针程序,用于实时监控和管理多个服务器的性能指标。
 
 ## 主要特性
 
@@ -27,7 +27,7 @@ XProb 是一个高效、轻量级的多平台服务器探针程序,用于实时�
 1. 克隆仓库:
 
    ```
-   git clone https://github.com/zsai001/xprob.git
+   git clone https://github.com/zsai001/xprobe.git
    cd xprob
    ```
 
@@ -42,7 +42,7 @@ XProb 是一个高效、轻量级的多平台服务器探针程序,用于实时�
    在需要监控的服务器上运行以下命令:
 
    ```
-   curl -sSL https://your-xprob-server/install.sh | bash
+   curl -sSL https://your-xprobe-server/install.sh | bash
    ```
 
 4. 访问Web管理界面:
@@ -52,7 +52,7 @@ XProb 是一个高效、轻量级的多平台服务器探针程序,用于实时�
 ## 项目结构
 
 ```
-xprob/
+xprobe/
 ├── main.go # 主程序入口
 ├── agent/ # 客户端探针代码
 ├── docker-compose.yml # Docker Compose 配置文件
