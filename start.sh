@@ -75,7 +75,7 @@ compile_agent() {
 # 启动项目
 start_project() {
     echo "正在启动项目..."
-    docker compose up -d
+    docker compose up --build -d
     check_status "启动项目失败"
     echo "项目启动成功"
 }

@@ -63,12 +63,28 @@ func HandleDynamicReport(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	// Check if the node is bound or unbound
+	nodeStatus, err := checkNodeStatus(data.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check node status"})
+		return
+	}
 
+	if nodeStatus == "unbound" {
+		// Bind the node
+		if err := bindNode(data.ID); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to bind node"})
+			return
+		}
+	} else if nodeStatus == "notfound" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Node not found or invalid"})
+		return
+	}
 	// 添加时间戳
 	data.Timestamp = time.Now()
 
 	// 插入数据到 MongoDB
-	err := insertDynamicData(data)
+	err = insertDynamicData(data)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to insert data"})
 		return
@@ -90,17 +106,62 @@ func HandleStaticReport(c *gin.Context) {
 		return
 	}
 
+	// Check if the node is bound or unbound
+	nodeStatus, err := checkNodeStatus(data.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check node status"})
+		return
+	}
+
+	if nodeStatus == "unbound" {
+		// Bind the node
+		if err := bindNode(data.ID); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to bind node"})
+			return
+		}
+	} else if nodeStatus == "notfound" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Node not found or invalid"})
+		return
+	}
+
 	// 添加或更新最后报告时间
 	data.LastReportTime = time.Now()
 
 	// 插入或更新数据到 MongoDB
-	err := upsertStaticData(data)
+	err = upsertStaticData(data)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upsert data"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Static data received and stored successfully"})
+}
+
+// New function to check node status
+func checkNodeStatus(nodeID string) (string, error) {
+	cc := db.MG.CC("prob", "node")
+	var result struct {
+		Status string `bson:"status"`
+	}
+	err := cc.FindOne(context.TODO(), bson.M{"_id": nodeID}).Decode(&result)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return "notfound", nil
+		}
+		return "", err
+	}
+	return result.Status, nil
+}
+
+// New function to bind a node
+func bindNode(nodeID string) error {
+	cc := db.MG.CC("prob", "node")
+	_, err := cc.UpdateOne(
+		context.TODO(),
+		bson.M{"_id": nodeID},
+		bson.M{"$set": bson.M{"status": "bound"}},
+	)
+	return err
 }
 
 func upsertStaticData(data ServerStaticData) error {
