@@ -1,89 +1,85 @@
 #!/bin/bash
 
-# 检查是否已安装Docker
+# 日志函数
+log_error() {
+    echo "错误: $1" >&2
+}
+
+# 检查命令执行状态
+check_status() {
+    if [ $? -ne 0 ]; then
+        log_error "$1"
+        exit 1
+    fi
+}
+
+# 检查是否已安装Go
+check_go() {
+    if ! command -v go &>/dev/null; then
+        echo "Go未安装,正在安装..."
+        # 下载最新版本的Go
+        wget https://go.dev/dl/go1.21.6.linux-amd64.tar.gz
+        check_status "下载Go失败"
+
+        # 解压到 /usr/local
+        sudo tar -C /usr/local -xzf go1.21.6.linux-amd64.tar.gz
+        check_status "解压Go失败"
+
+        # 添加Go到PATH
+        echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+        check_status "添加Go到PATH失败"
+
+        source ~/.bashrc
+        # 清理下载文件
+        rm go1.21.6.linux-amd64.tar.gz
+        echo "Go安装完成,请运行 'source ~/.bashrc' 或重新登录以应用更改"
+    else
+        echo "Go已安装"
+    fi
+}
+
+# 检查Docker
 check_docker() {
-    if ! command -v docker &> /dev/null; then
-        echo "Docker未安装,正在安装..."
-        curl -fsSL https://get.docker.com -o get-docker.sh
-        sudo sh get-docker.sh
-        sudo usermod -aG docker $USER
-        echo "Docker安装完成,请重新登录以应用更改"
-        exit
-    else
-        echo "Docker已安装"
+    if ! command -v docker &>/dev/null; then
+        log_error "Docker未安装,请先安装Docker"
+        exit 1
     fi
+    echo "Docker已安装"
 }
 
-# 检查是否已安装Docker Compose
+# 检查Docker Compose
 check_docker_compose() {
-    if ! command -v docker-compose &> /dev/null; then
-        echo "Docker Compose未安装,正在安装..."
-        sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-        sudo chmod +x /usr/local/bin/docker-compose
-        echo "Docker Compose安装完成"
-    else
-        echo "Docker Compose已安装"
+    if ! command -v docker-compose &>/dev/null; then
+        log_error "Docker Compose未安装,请先安装Docker Compose"
+        exit 1
     fi
+    echo "Docker Compose已安装"
 }
 
-# 编译agent到html目录
+# 编译agent
 compile_agent() {
-    echo "正在编译agent到html目录..."
-    cd agent || exit
-    
-    # 定义要编译的操作系统和架构
-    OS_ARCH_PAIRS=(
-        "linux/amd64"
-        "linux/386"
-        "linux/arm"
-        "linux/arm64"
-        "darwin/amd64"
-        "darwin/arm64"
-        "windows/amd64"
-        "windows/386"
-    )
-    
-    for os_arch in "${OS_ARCH_PAIRS[@]}"; do
-        IFS='/' read -r os arch <<< "$os_arch"
-        echo "编译 $os/$arch ..."
-        
-        output_dir="../html/agent/$os/$arch"
-        mkdir -p "$output_dir"
-        
-        if [ "$os" == "windows" ]; then
-            output_name="xprobe_agent.exe"
-        else
-            output_name="xprobe_agent"
-        fi
-        
-        GOOS=$os GOARCH=$arch go build -o "$output_dir/$output_name" .
-        
-        if [ $? -eq 0 ]; then
-            echo "$os/$arch 编译成功"
-        else
-            echo "$os/$arch 编译失败"
-        fi
-    done
-    
-    cd ..
-    echo "所有版本的agent编译完成"
+    echo "正在编译agent..."
+    go build -o agent
+    check_status "编译agent失败"
+    echo "agent编译完成"
 }
 
-
-# 启动Docker Compose项目
+# 启动项目
 start_project() {
-    echo "正在启动Docker Compose项目..."
-    docker-compose up --build -d
-    echo "项目已启动"
+    echo "正在启动项目..."
+    docker-compose up -d
+    check_status "启动项目失败"
+    echo "项目启动成功"
 }
 
 # 主函数
 main() {
-#    check_docker
-#    check_docker_compose
+    check_docker
+    check_docker_compose
+    check_go
     compile_agent
-#    start_project
+    start_project
 }
 
-# 运行主函数
+# 执行主函数
 main
