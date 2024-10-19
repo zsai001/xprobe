@@ -64,19 +64,19 @@ func HandleDynamicReport(c *gin.Context) {
 		return
 	}
 	// Check if the node is bound or unbound
-	nodeStatus, err := checkNodeStatus(data.ID)
+	bind, err := checkNodeStatus(data.ID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check node status"})
 		return
 	}
 
-	if nodeStatus == "unbound" {
+	if !bind {
 		// Bind the node
 		if err := bindNode(data.ID); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to bind node"})
 			return
 		}
-	} else if nodeStatus == "notfound" {
+	} else {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Node not found or invalid"})
 		return
 	}
@@ -107,19 +107,19 @@ func HandleStaticReport(c *gin.Context) {
 	}
 
 	// Check if the node is bound or unbound
-	nodeStatus, err := checkNodeStatus(data.ID)
+	bind, err := checkNodeStatus(data.ID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check node status"})
 		return
 	}
 
-	if nodeStatus == "unbound" {
+	if !bind {
 		// Bind the node
 		if err := bindNode(data.ID); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to bind node"})
 			return
 		}
-	} else if nodeStatus == "notfound" {
+	} else {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Node not found or invalid"})
 		return
 	}
@@ -138,19 +138,19 @@ func HandleStaticReport(c *gin.Context) {
 }
 
 // New function to check node status
-func checkNodeStatus(nodeID string) (string, error) {
+func checkNodeStatus(nodeID string) (bool, error) {
 	cc := db.MG.CC("prob", "node")
 	var result struct {
-		Status string `bson:"status"`
+		Bound bool `bson:"bound"`
 	}
 	err := cc.FindOne(context.TODO(), bson.M{"token": nodeID}).Decode(&result)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			return "notfound", nil
+			return false, nil
 		}
-		return "", err
+		return false, err
 	}
-	return result.Status, nil
+	return result.Bound, nil
 }
 
 // New function to bind a node
@@ -159,7 +159,7 @@ func bindNode(nodeID string) error {
 	_, err := cc.UpdateOne(
 		context.TODO(),
 		bson.M{"token": nodeID},
-		bson.M{"$set": bson.M{"status": "bound"}},
+		bson.M{"$set": bson.M{"status": true}},
 	)
 	return err
 }
