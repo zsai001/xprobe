@@ -143,7 +143,7 @@ func checkNodeStatus(nodeID string) (string, error) {
 	var result struct {
 		Status string `bson:"status"`
 	}
-	err := cc.FindOne(context.TODO(), bson.M{"_id": nodeID}).Decode(&result)
+	err := cc.FindOne(context.TODO(), bson.M{"token": nodeID}).Decode(&result)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return "notfound", nil
@@ -158,7 +158,7 @@ func bindNode(nodeID string) error {
 	cc := db.MG.CC("prob", "node")
 	_, err := cc.UpdateOne(
 		context.TODO(),
-		bson.M{"_id": nodeID},
+		bson.M{"token": nodeID},
 		bson.M{"$set": bson.M{"status": "bound"}},
 	)
 	return err
@@ -167,7 +167,7 @@ func bindNode(nodeID string) error {
 func upsertStaticData(data ServerStaticData) error {
 	collection := db.MG.CC("vps", "static")
 
-	filter := bson.M{"_id": data.ID}
+	filter := bson.M{"id": data.ID}
 	update := bson.M{"$set": data}
 	opts := options.Update().SetUpsert(true)
 
