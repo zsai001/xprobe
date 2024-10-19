@@ -2,6 +2,7 @@ package web
 
 import (
 	"net/url"
+	"server/util"
 	"text/template"
 
 	"github.com/gin-gonic/gin"
@@ -10,7 +11,7 @@ import (
 func InstallCmd(c *gin.Context) {
 	host := c.Request.Host
 	scheme := "http"
-	if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
+	if util.IsHTTPS(c) {
 		scheme = "https"
 	}
 	baseURL := url.URL{

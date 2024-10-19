@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"net/url"
 	"server/db"
+	"server/util"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -18,7 +19,7 @@ func GetAddSetting(c *gin.Context) AddSetting {
 	hostname := c.Request.Host
 
 	scheme := "http"
-	if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
+	if util.IsHTTPS(c) {
 		scheme = "https"
 	}
 

@@ -8,6 +8,29 @@ import (
 	"strings"
 )
 
+func IsHTTPS(c *gin.Context) bool {
+	// 检查 X-Forwarded-Proto
+	if c.GetHeader("X-Forwarded-Proto") == "https" {
+		return true
+	}
+
+	// 检查 Cloudflare 特有的头
+	if c.GetHeader("Cf-Visitor") != "" {
+		var cfVisitor map[string]string
+		json.Unmarshal([]byte(c.GetHeader("Cf-Visitor")), &cfVisitor)
+		if scheme, ok := cfVisitor["scheme"]; ok && scheme == "https" {
+			return true
+		}
+	}
+
+	// 检查 Cloudflare 的另一个头
+	if c.GetHeader("Cf-Request-Scheme") == "https" {
+		return true
+	}
+
+	return false
+}
+
 func DebugRequest(c *gin.Context) {
 	var debugInfo strings.Builder
 

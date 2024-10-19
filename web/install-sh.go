@@ -3,6 +3,7 @@ package web
 import (
 	"github.com/gin-gonic/gin"
 	"net/url"
+	"server/util"
 	"text/template"
 )
 
@@ -13,13 +14,14 @@ type ScriptData struct {
 func InstallSh(c *gin.Context) {
 	host := c.Request.Host
 	scheme := "http"
-	if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
+	if util.IsHTTPS(c) {
 		scheme = "https"
 	}
 	baseURL := url.URL{
 		Scheme: scheme,
 		Host:   host,
 	}
+
 	data := ScriptData{
 		ServerURL: baseURL.String(),
 	}
