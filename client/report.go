@@ -159,7 +159,7 @@ func bindNode(nodeID string) error {
 	_, err := cc.UpdateOne(
 		context.TODO(),
 		bson.M{"token": nodeID},
-		bson.M{"$set": bson.M{"status": true}},
+		bson.M{"$set": bson.M{"bound": true}},
 	)
 	return err
 }
