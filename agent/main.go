@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"net"
@@ -31,8 +32,6 @@ var (
 	currentSpeed NetworkSpeed
 	speedMutex   sync.RWMutex
 )
-
-const NodeId string = "SMVzhGRBP28="
 
 func init() {
 	go maintainNetworkSpeed()
@@ -281,9 +280,10 @@ func ReportDetail() {
 
 }
 
-const (
+var (
 	reportInterval = 1 * time.Second
 	Host           = "http://127.0.0.1:8080" // 替换为实际的报告地址
+	NodeId         = "default_test"
 )
 
 func ApiPath(path string) string {
@@ -326,6 +326,17 @@ func SafeReportStatic() {
 }
 
 func main() {
+	flag.DurationVar(&reportInterval, "i", 1*time.Second, "Report interval")
+	flag.Parse()
+
+	args := flag.Args()
+	if len(args) >= 1 {
+		Host = args[0]
+	}
+	if len(args) >= 2 {
+		NodeId = args[1]
+	}
+
 	go SafeReportStatic()
 	go SafeReportDynamic()
 	select {}
