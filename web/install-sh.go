@@ -1,10 +1,9 @@
 package web
 
 import (
-	"fmt"
-	"text/template"
-
 	"github.com/gin-gonic/gin"
+	"net/url"
+	"text/template"
 )
 
 type ScriptData struct {
@@ -13,8 +12,16 @@ type ScriptData struct {
 
 func InstallSh(c *gin.Context) {
 	host := c.Request.Host
+	scheme := "http"
+	if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
+		scheme = "https"
+	}
+	baseURL := url.URL{
+		Scheme: scheme,
+		Host:   host,
+	}
 	data := ScriptData{
-		ServerURL: fmt.Sprintf("http://%s", host),
+		ServerURL: baseURL.String(),
 	}
 	c.Header("Content-Type", "text/plain")
 	bashTemplate.Execute(c.Writer, data)

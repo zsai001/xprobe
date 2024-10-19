@@ -1,7 +1,7 @@
 package web
 
 import (
-	"fmt"
+	"net/url"
 	"text/template"
 
 	"github.com/gin-gonic/gin"
@@ -9,10 +9,17 @@ import (
 
 func InstallPs(c *gin.Context) {
 	host := c.Request.Host
-	data := ScriptData{
-		ServerURL: fmt.Sprintf("http://%s", host),
+	scheme := "http"
+	if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
+		scheme = "https"
 	}
-
+	baseURL := url.URL{
+		Scheme: scheme,
+		Host:   host,
+	}
+	data := ScriptData{
+		ServerURL: baseURL.String(),
+	}
 	c.Header("Content-Type", "text/plain")
 	powershellTemplate.Execute(c.Writer, data)
 }
