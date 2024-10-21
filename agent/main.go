@@ -305,7 +305,11 @@ func Report(path string, data interface{}) error {
 	}
 	fmt.Println("report", path, "with", string(jsonData))
 	url := ApiPath(path)
-	_, err = http.Post(url, "application/json", bytes.NewBuffer(jsonData))
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
+	if resp.StatusCode != http.StatusOK {
+		out, _ := io.ReadAll(resp.Body)
+		return errors.New(resp.Status + string(out))
+	}
 	return err
 }
 
