@@ -182,7 +182,10 @@ func ReportStatic() {
 		fmt.Println("Error getting server static info", err)
 		return
 	}
-	Report("api/report/static", staticData)
+	err = Report("api/report/static", staticData)
+	if err != nil {
+		fmt.Println("Error reporting static info", err)
+	}
 }
 
 func ReportDynamic() {
@@ -191,7 +194,10 @@ func ReportDynamic() {
 		fmt.Println("Error getting server dynamic info", err)
 		return
 	}
-	Report("api/report/dynamic", dynamicData)
+	err = Report("api/report/dynamic", dynamicData)
+	if err != nil {
+		fmt.Println("Error reporting dynamic info", err)
+	}
 }
 
 func SafeReportDynamic() {

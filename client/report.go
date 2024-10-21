@@ -2,6 +2,8 @@ package client
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
 	"server/db"
 	"time"
@@ -70,6 +72,7 @@ func HandleDynamicReport(c *gin.Context) {
 		return
 	}
 
+	fmt.Println("check dynamic vps bind with", data.ID, bind)
 	if !bind {
 		// Bind the node
 		if err := bindNode(data.ID); err != nil {
@@ -112,6 +115,8 @@ func HandleStaticReport(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check node status"})
 		return
 	}
+
+	fmt.Println("check static vps bind with", data.ID, bind)
 
 	if !bind {
 		// Bind the node
@@ -156,11 +161,18 @@ func checkNodeStatus(nodeID string) (bool, error) {
 // New function to bind a node
 func bindNode(nodeID string) error {
 	cc := db.MG.CC("prob", "node")
-	_, err := cc.UpdateOne(
+	result, err := cc.UpdateOne(
 		context.TODO(),
 		bson.M{"token": nodeID},
 		bson.M{"$set": bson.M{"bound": true}},
 	)
+	fmt.Println("bind node result", result, nodeID)
+	if err != nil {
+		return err
+	}
+	if result.MatchedCount == 0 {
+		return errors.New("Node not found or invalid")
+	}
 	return err
 }
 
