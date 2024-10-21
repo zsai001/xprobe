@@ -71,17 +71,13 @@ func HandleDynamicReport(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check node status"})
 		return
 	}
-
 	fmt.Println("check dynamic vps bind with", data.ID, bind)
-	if !bind {
-		// Bind the node
-		if err := bindNode(data.ID); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to bind node"})
-			return
-		}
-	} else {
+	if bind != "unbind" && bind != "bind" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Node not found or invalid"})
 		return
+	}
+	if bind == "unbind" {
+		bindNode(data.ID)
 	}
 	// 添加时间戳
 	data.Timestamp = time.Now()
@@ -116,17 +112,15 @@ func HandleStaticReport(c *gin.Context) {
 		return
 	}
 
-	fmt.Println("check static vps bind with", data.ID, bind)
-
-	if !bind {
-		// Bind the node
-		if err := bindNode(data.ID); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to bind node"})
-			return
-		}
-	} else {
+	if bind != "unbind" && bind != "bind" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Node not found or invalid"})
 		return
+	}
+
+	fmt.Println("check static vps bind with", data.ID, bind)
+
+	if bind == "unbind" {
+		bindNode(data.ID)
 	}
 
 	// 添加或更新最后报告时间
@@ -143,7 +137,7 @@ func HandleStaticReport(c *gin.Context) {
 }
 
 // New function to check node status
-func checkNodeStatus(nodeID string) (bool, error) {
+func checkNodeStatus(nodeID string) (string, error) {
 	cc := db.MG.CC("prob", "node")
 	var result struct {
 		Bound bool `bson:"bound"`
@@ -151,11 +145,15 @@ func checkNodeStatus(nodeID string) (bool, error) {
 	err := cc.FindOne(context.TODO(), bson.M{"token": nodeID}).Decode(&result)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			return false, nil
+			return "unknown", nil
 		}
-		return false, err
+		return "error", err
 	}
-	return result.Bound, nil
+	if result.Bound {
+		return "bind", nil
+	} else {
+		return "unbind", nil
+	}
 }
 
 // New function to bind a node
