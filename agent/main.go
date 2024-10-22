@@ -164,16 +164,16 @@ func getServerStaticData() (ServerStaticData, error) {
 
 func checkNAT(publicIP, localIPs string) bool {
 	if publicIP == "Unknown" || localIPs == "" {
-		return false // 无法确定，默认为非 NAT
+		return false
 	}
 
 	localIPList := strings.Split(localIPs, ",")
 	for _, localIP := range localIPList {
 		if localIP == publicIP {
-			return false // 公网 IP 与某个本地 IP 匹配，不是 NAT
+			return false
 		}
 	}
-	return true // 公网 IP 与所有本地 IP 都不匹配，可能是 NAT
+	return true
 }
 
 func ReportStatic() {
