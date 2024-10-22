@@ -8,6 +8,7 @@ import (
 	"server/client"
 	"server/db"
 	"server/util"
+	"strings"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -15,6 +16,21 @@ import (
 	"server/web"
 	"time"
 )
+
+type htmlFileSystem struct {
+	fs http.FileSystem
+}
+
+func (hfs htmlFileSystem) Open(name string) (http.File, error) {
+	// 如果路径没有扩展名，尝试添加.html
+	if !strings.Contains(name, ".") {
+		// 先尝试带html后缀的文件
+		if f, err := hfs.fs.Open(name + ".html"); err == nil {
+			return f, nil
+		}
+	}
+	return hfs.fs.Open(name)
+}
 
 func main() {
 	mongoURI := os.Getenv("MONGO_URI")
@@ -66,12 +82,14 @@ func main() {
 	r.POST("/api/report/static", client.HandleStaticReport)
 
 	// 设置静态文件服务
-	r.NoRoute(gin.WrapH(http.FileServer(http.Dir(staticDir))))
+	fs := htmlFileSystem{http.Dir(staticDir)}
+	r.NoRoute(gin.WrapH(http.FileServer(fs)))
+	//r.NoRoute(gin.WrapH(http.FileServer(http.Dir(staticDir))))
 
 	// 启动服务器
 	port := 8080
 	fmt.Printf("Starting server on :%d, serving files from %s\n", port, staticDir)
-	err = r.Run(fmt.Sprintf(":%d", port))
+	err = r.Run(fmt.Sprintf("192.168.31.99:%d", port))
 	if err != nil {
 		fmt.Println("Error starting server:", err)
 	}
