@@ -15,7 +15,7 @@ import (
 // Task 代表一个可执行的任务
 type Task interface {
 	Execute() error
-	GetData() []byte
+	GetData() interface{}
 	SetConfig(string) string
 }
 
@@ -86,8 +86,15 @@ func (m *Manager) GetConfig(name string) (TaskConfig, bool) {
 func (m *Manager) RunTasks() {
 	//m.mu.RLock()
 	//defer m.mu.RUnlock()
+
 	var err error
 	for name, task := range m.tasks {
+		cfg, _ := config.GetOtherConfig(name)
+		if IsConfigChanged(name, cfg) {
+			task.SetConfig(cfg)
+		}
+		log.Infof("run task: %s, config: %s", name, cfg)
+
 		err = task.Execute()
 		if err != nil {
 			log.Errorf("run task %s with error %s", name, err.Error())
@@ -96,7 +103,7 @@ func (m *Manager) RunTasks() {
 		}
 	}
 
-	allData := make(map[string][]byte)
+	allData := make(map[string]interface{})
 	for name, task := range m.tasks {
 		data := task.GetData()
 		if data == nil {
@@ -104,9 +111,13 @@ func (m *Manager) RunTasks() {
 		}
 		allData[name] = data
 	}
-	util.Report("/api/report", allData)
-	log.Info("report with", "api/report", allData)
+	err = util.Report("/api/report", allData)
+	if err != nil {
+		log.Errorf("report to /api/report error: %v", err)
+	}
+	// log.Info("report with", "api/report", allData, "error", err)
 	time.Sleep(1 * time.Second)
+
 	//for name, config := range m.configs {
 	//	if config.Enabled {
 	//		m.runTask(name, config.Interval)
@@ -138,23 +149,44 @@ func (m *Manager) Start() {
 	}
 }
 
-// runTask 运行单个任务
-func (m *Manager) runTask(name string, interval time.Duration) {
-	for {
-		task, exists := m.Get(name)
-		if !exists {
-			log.Errorf("任务 '%s' 不存在\n", name)
-			return
-		}
+var tempConfig map[string]string = make(map[string]string)
 
-		err := task.Execute()
-		if err != nil {
-			log.Errorf("执行任务 '%s' 失败: %v\n", name, err)
-		}
-
-		time.Sleep(interval)
+func IsConfigChanged(name string, newConfig string) bool {
+	cfg, ok := tempConfig[name]
+	if !ok {
+		tempConfig[name] = newConfig
+		return true
 	}
+	if cfg != newConfig {
+		tempConfig[name] = newConfig
+		return true
+	}
+	return false
 }
+
+// // runTask 运行单个任务
+// func (m *Manager) runTask(name string, interval time.Duration) {
+// 	for {
+// 		task, exists := m.Get(name)
+// 		if !exists {
+// 			log.Errorf("任务 '%s' 不存在\n", name)
+// 			return
+// 		}
+
+// 		cfg, _ := config.GetOtherConfig(name)
+// 		if IsConfigChanged(name, cfg) {
+// 			task.SetConfig(cfg)
+// 		}
+// 		log.Infof("run task: %s, config: %s", name, cfg)
+
+// 		err := task.Execute()
+// 		if err != nil {
+// 			log.Errorf("执行任务 '%s' 失败: %v\n", name, err)
+// 		}
+
+// 		time.Sleep(interval)
+// 	}
+// }
 
 // InitTasks 初始化所有任务
 func InitTasks(m *Manager, cfg *config.Config) {

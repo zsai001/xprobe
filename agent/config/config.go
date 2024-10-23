@@ -3,10 +3,11 @@ package config
 import (
 	"flag"
 	"fmt"
-	"gopkg.in/yaml.v2"
 	"os"
 	"path/filepath"
 	"time"
+
+	"gopkg.in/yaml.v2"
 )
 
 var (
@@ -39,13 +40,6 @@ func getConfigPath() string {
 // loadConfig 加载配置文件
 func LoadConfig(host, node string) (*Config, error) {
 	configPath := getConfigPath()
-
-	// 创建默认配置
-	cfg := &Config{
-		NodeID:  node,
-		Host:    host,
-		Version: version,
-	}
 
 	// 检查配置文件是否存在
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
@@ -88,11 +82,29 @@ func LoadConfig(host, node string) (*Config, error) {
 		cfg.NodeID = flag.Lookup("node").Value.String()
 	}
 
+	cfg.Host = host
+	cfg.NodeID = node
+	cfg.Version = version
+	cfg.Other = make(map[string]string)
 	return cfg, nil
 }
 
+var cfg = &Config{Other: make(map[string]string)}
+
+func GetConfig() (*Config, error) {
+	return cfg, nil
+}
+
+func GetOtherConfig(name string) (string, error) {
+	return cfg.Other[name], nil
+}
+
+func SetOtherConfig(name string, value string) {
+	cfg.Other[name] = value
+}
+
 type Config struct {
-	NodeID  string `yaml:"node_id"`
-	Host    string `yaml:"host"`
-	Version string `yaml:"version"`
+	NodeID string            `yaml:"node_id"`
+	Host   string            `yaml:"host"`
+	Other  map[string]string `yaml:",inline"`
 }

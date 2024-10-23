@@ -19,7 +19,7 @@ type InstallConfig struct {
 	Force       bool   `json:"force"`
 }
 
-func (a *InstallAction) Execute() error {
+func (a *InstallAction) Execute(topic string, data interface{}) error {
 	switch runtime.GOOS {
 	case "linux":
 		return a.installOnLinux()

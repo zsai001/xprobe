@@ -53,8 +53,8 @@ func NewStatusTask(nodeID string) *StatusTask {
 	return task
 }
 
-func (t *StatusTask) GetData() []byte {
-	data, _ := json.Marshal(t.Data)
+func (t *StatusTask) GetData() interface{} {
+	data := t.Data
 	t.Data = t.Data[:]
 	return data
 }

@@ -50,8 +50,8 @@ type HostInfoTask struct {
 	Result []ServerStaticData
 }
 
-func (t *HostInfoTask) GetData() []byte {
-	data, _ := json.Marshal(t.Result)
+func (t *HostInfoTask) GetData() interface{} {
+	data := t.Result
 	t.Result = t.Result[:]
 	return data
 }

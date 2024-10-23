@@ -12,7 +12,8 @@ import (
 )
 
 type PingConfig struct {
-	Nodes []PingNode `json:"nodes"`
+	Nodes   []PingNode `json:"nodes"`
+	Version string     `json:"version"`
 }
 
 type PingNode struct {
@@ -23,74 +24,74 @@ type PingNode struct {
 }
 
 type PingResult struct {
-	NodeName  string
-	IP        string
-	Latency   float64
-	Timestamp time.Time
+	NodeName  string    `json:"node_name"`
+	Address   string    `json:"address"`
+	Latency   float64   `json:"latency"`
+	Timestamp time.Time `json:"timestamp"`
 }
 
 type PingManager struct {
 	config     PingConfig
 	configLock sync.RWMutex
 	stopChan   chan struct{}
-	reportFunc func(PingResult)
+	once       sync.Once
+	Data       []PingResult
+}
+
+type PingTaskData struct {
+	Data    []PingResult
+	Version string
 }
 
 type PingTask struct {
-	Data   [][]PingResult
-	Config *PingConfig
+	Data   PingTaskData
+	Config PingConfig
 }
 
 func (t *PingTask) Execute() error {
-
+	t.Data.Data = m.Data
+	t.Data.Version = t.Config.Version
+	m.Data = []PingResult{}
 	return nil
 }
 
-func (t *PingTask) GetData() []byte {
-	data, _ := json.Marshal(t.Data)
-	t.Data = t.Data[:]
+func (t *PingTask) GetData() interface{} {
+	data := t.Data
+	t.Data.Data = t.Data.Data[:]
 	return data
 }
 
 func (t *PingTask) SetConfig(cfg string) string {
-	t.Config = &PingConfig{}
-	json.Unmarshal([]byte(cfg), t.Config)
+	// panic("ping task set config")
+	t.Config = PingConfig{}
+	json.Unmarshal([]byte(cfg), &t.Config)
+	m.UpdateConfig(t.Config)
 	return ""
 }
 
-func NewPingManager(configJSON []byte, reportFunc func(PingResult)) (*PingManager, error) {
-	var config PingConfig
-	err := json.Unmarshal(configJSON, &config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse config: %v", err)
-	}
+var m = newPingManager()
 
+func newPingManager() *PingManager {
 	return &PingManager{
-		config:     config,
-		stopChan:   make(chan struct{}),
-		reportFunc: reportFunc,
-	}, nil
+		stopChan: make(chan struct{}),
+	}
 }
 
 func (pm *PingManager) Start() {
-	go pm.run()
+	pm.once.Do(func() {
+		go pm.run()
+	})
 }
 
 func (pm *PingManager) Stop() {
 	close(pm.stopChan)
 }
 
-func (pm *PingManager) UpdateConfig(configJSON []byte) error {
-	var newConfig PingConfig
-	err := json.Unmarshal(configJSON, &newConfig)
-	if err != nil {
-		return fmt.Errorf("failed to parse new config: %v", err)
-	}
-
+func (pm *PingManager) UpdateConfig(newConfig PingConfig) error {
 	pm.configLock.Lock()
 	pm.config = newConfig
 	pm.configLock.Unlock()
-
+	pm.Start()
 	return nil
 }
 
@@ -99,7 +100,7 @@ func (pm *PingManager) run() {
 
 	for {
 		select {
-		case <-time.After(1 * time.Second):
+		case <-time.After(5 * time.Second):
 			pm.configLock.RLock()
 			nodes := pm.config.Nodes
 			pm.configLock.RUnlock()
@@ -145,7 +146,7 @@ func (pm *PingManager) pingNode(node PingNode, ticker <-chan time.Time) {
 				log.Printf("Error pinging %s (%s): %v", node.Name, node.Address, err)
 				continue
 			}
-			pm.reportFunc(result)
+			pm.Data = append(pm.Data, result)
 		case <-pm.stopChan:
 			return
 		}
@@ -153,7 +154,7 @@ func (pm *PingManager) pingNode(node PingNode, ticker <-chan time.Time) {
 }
 
 func (pm *PingManager) pingHost(node PingNode) (PingResult, error) {
-	if node.UseTCP {
+	if node.UseTCP && false {
 		return pm.tcpPing(node)
 	}
 	return pm.icmpPing(node)
@@ -177,7 +178,7 @@ func (pm *PingManager) icmpPing(node PingNode) (PingResult, error) {
 
 	return PingResult{
 		NodeName:  node.Name,
-		IP:        stats.IPAddr.String(),
+		Address:   node.Address,
 		Latency:   float64(stats.AvgRtt) / float64(time.Millisecond),
 		Timestamp: time.Now(),
 	}, nil
@@ -187,17 +188,17 @@ func (pm *PingManager) tcpPing(node PingNode) (PingResult, error) {
 	start := time.Now()
 	conn, err := net.DialTimeout("tcp", node.Address+":80", time.Second*2)
 	if err != nil {
-		return PingResult{}, err
+		return PingResult{NodeName: node.Name, Address: node.Address, Latency: 0, Timestamp: time.Now()}, err
 	}
 	defer conn.Close()
 
 	latency := time.Since(start).Seconds() * 1000 // 转换为毫秒
 
-	ip, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
+	// ip, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
 
 	return PingResult{
 		NodeName:  node.Name,
-		IP:        ip,
+		Address:   node.Address,
 		Latency:   latency,
 		Timestamp: time.Now(),
 	}, nil

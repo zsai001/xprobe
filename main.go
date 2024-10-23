@@ -130,9 +130,9 @@ func main() {
 	r.DELETE("/api/probes/:id", util.Auth(), web.ProbeDelete)
 	r.GET("/api/servers/:id", web.GetProbeLatency)
 
-	r.POST("/api/report/dynamic", client.HandleDynamicReport)
-	r.POST("/api/report/static", client.HandleStaticReport)
-
+	// r.POST("/api/report/dynamic", client.HandleDynamicReport)
+	// r.POST("/api/report/static", client.HandleStaticReport)
+	r.POST("/api/report", client.HandleReport)
 	// 设置静态文件服务
 	fs := nextJsFileSystem{http.Dir(staticDir)}
 	r.NoRoute(gin.WrapH(http.FileServer(fs)))
@@ -142,7 +142,7 @@ func main() {
 	// 启动服务器
 	port := 8080
 	fmt.Printf("Starting server on :%d, serving files from %s\n", port, staticDir)
-	err = r.Run(fmt.Sprintf("192.168.31.99:%d", port))
+	err = r.Run(fmt.Sprintf("192.168.100.63:%d", port))
 	if err != nil {
 		fmt.Println("Error starting server:", err)
 	}

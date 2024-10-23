@@ -1,4 +1,4 @@
-package benchmark
+package bench
 
 import (
 	"encoding/json"
@@ -24,7 +24,7 @@ type BenchmarkResult struct {
 	Details   string    `json:"details"`
 }
 
-func (a *BenchmarkAction) Execute() error {
+func (a *BenchmarkAction) Execute(topic string, data interface{}) error {
 	a.Result = &BenchmarkResult{
 		StartTime: time.Now(),
 	}

@@ -2,8 +2,10 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"server/db"
 	"time"
@@ -13,6 +15,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"gopkg.in/mgo.v2/bson"
 )
+
+var Version = "1.0.1"
 
 type ServerDynamicData struct {
 	ID              string     `json:"id" bson:"id"`
@@ -54,43 +58,147 @@ type ServerStaticData struct {
 	Version        string    `json:"version" bson:"version"`
 }
 
+type Report map[string]any
+
 var (
 	mongoClient *mongo.Client
 	database    string
 	collection  string
 )
 
-func HandleDynamicReport(c *gin.Context) {
-	var data ServerDynamicData
-	if err := c.ShouldBindJSON(&data); err != nil {
+type Action struct {
+	Name   string `json:"name"`
+	Topic  string `json:"topic"`
+	Data   string `json:"data"`
+	Pority int    `json:"pority"`
+}
+
+func HandleReport(c *gin.Context) {
+	var report Report
+	if err := c.ShouldBindJSON(&report); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	// Check if the node is bound or unbound
-	bind, err := checkNodeStatus(data.ID)
+	// header["X-Node-Id"] = cfg.NodeID
+	// header["X-Agent-Version"] = cfg.Version
+
+	// nodeId := c.GetHeader("X-Node-Id")
+	version := c.GetHeader("X-Agent-Version")
+
+	actions := []*Action{}
+	if version != Version {
+		actions = append(actions, &Action{Name: "upgrade"})
+	}
+
+	action := HandleDynamicReport(c, report)
+	if action != nil {
+		actions = append(actions, action)
+	}
+	action = HandleStaticReport(c, report)
+	if action != nil {
+		actions = append(actions, action)
+	}
+	action = HandlePingReport(c, report)
+
+	if action != nil {
+		actions = append(actions, action)
+	}
+	if len(actions) > 0 {
+		c.JSON(http.StatusOK, gin.H{"actions": actions})
+		return
+	}
+	// log.Println("report", report)
+	c.JSON(http.StatusOK, gin.H{"message": "Report received and stored successfully"})
+}
+
+type PingReport struct {
+	Data    []db.PingData `json:"data"`
+	Version string        `json:"version"`
+}
+
+func HandlePingReport(c *gin.Context, report Report) *Action {
+	data := PingReport{}
+	if content, ok := report["ping"]; ok {
+		ConvertContent(content, &data)
+		fmt.Println("ping report", data)
+	} else {
+		fmt.Println("no ping report")
+		return nil
+	}
+	nodeId := c.GetHeader("X-Node-Id")
+	fmt.Println("nodeId", nodeId)
+	if nodeId == "" {
+		return nil
+	}
+	if len(data.Data) != 0 {
+		for i := range data.Data {
+			data.Data[i].NodeId = nodeId
+		}
+
+		db.InsertPingResult(data.Data)
+	}
+
+	pingConfig, err := db.GetPingConfig()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check node status"})
-		return
+		return nil
 	}
-	fmt.Println("check dynamic vps bind with", data.ID, bind)
-	if bind != "unbind" && bind != "bind" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Node not found or invalid"})
-		return
+
+	if pingConfig.Version != data.Version {
+		cfg, err := db.GetPingConfig()
+		if err != nil {
+			return nil
+		}
+		data, _ := json.Marshal(cfg)
+		return &Action{Name: "config", Topic: "ping", Data: string(data)}
 	}
-	if bind == "unbind" {
-		bindNode(data.ID)
+	return nil
+}
+
+func ConvertContent(content any, data interface{}) {
+	tmp, _ := json.Marshal(content)
+	json.Unmarshal(tmp, data)
+}
+
+func HandleDynamicReport(c *gin.Context, report Report) *Action {
+	allData := []ServerDynamicData{}
+	if content, ok := report["dynamic"]; ok {
+		ConvertContent(content, &allData)
+	} else {
+		return nil
 	}
+	// allData, ok := content.([]ServerDynamicData)
+	// if !ok {
+	// 	return
+	// }
+	// Check if the node is bound or unbound
+	// bind, err := checkNodeStatus(data.ID)
+	// if err != nil {
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check node status"})
+	// 	return
+	// }
+	// fmt.Println("check dynamic vps bind with", data.ID, bind)
+	// if bind != "unbind" && bind != "bind" {
+	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "Node not found or invalid"})
+	// 	return
+	// }
+	// if bind == "unbind" {
+	// 	bindNode(data.ID)
+	// }
+
 	// 添加时间戳
+	data := allData[0]
 	data.Timestamp = time.Now()
+	log.Println("report dynamic with", data)
 
 	// 插入数据到 MongoDB
-	err = upsertDynamicData(data)
+	err := upsertDynamicData(data)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to insert data"})
-		return
+		return nil
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Data received and stored successfully"})
+	return nil
 }
 
 func upsertDynamicData(data ServerDynamicData) error {
@@ -110,42 +218,45 @@ func insertDynamicData(data ServerDynamicData) error {
 	return err
 }
 
-func HandleStaticReport(c *gin.Context) {
-	var data ServerStaticData
-	if err := c.ShouldBindJSON(&data); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+func HandleStaticReport(c *gin.Context, report Report) *Action {
+	allData := []ServerStaticData{}
+	if content, ok := report["static"]; ok {
+		ConvertContent(content, &allData)
+	} else {
+		return nil
 	}
+	data := allData[0]
 
 	// Check if the node is bound or unbound
-	bind, err := checkNodeStatus(data.ID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check node status"})
-		return
-	}
+	// bind, err := checkNodeStatus(data.ID)
+	// if err != nil {
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check node status"})
+	// 	return
+	// }
 
-	if bind != "unbind" && bind != "bind" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Node not found or invalid"})
-		return
-	}
+	// if bind != "unbind" && bind != "bind" {
+	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "Node not found or invalid"})
+	// 	return
+	// }
 
-	fmt.Println("check static vps bind with", data.ID, bind)
+	// fmt.Println("check static vps bind with", data.ID, bind)
 
-	if bind == "unbind" {
-		bindNode(data.ID)
-	}
+	// if bind == "unbind" {
+	// 	bindNode(data.ID)
+	// }
 
 	// 添加或更新最后报告时间
 	data.LastReportTime = time.Now()
-
+	log.Println("report static with", data)
 	// 插入或更新数据到 MongoDB
-	err = upsertStaticData(data)
+	err := upsertStaticData(data)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upsert data"})
-		return
+		return nil
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Static data received and stored successfully"})
+	return nil
 }
 
 // New function to check node status

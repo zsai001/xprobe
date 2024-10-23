@@ -2,8 +2,10 @@ package web
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"server/db"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -20,31 +22,23 @@ type Node struct {
 }
 
 type Probe struct {
-	ID   string `bson:"_id,omitempty" json:"id"`
+	ID   string `bson:"id,omitempty" json:"id,omitempty"`
 	Name string `bson:"name" json:"name"`
 	IP   string `bson:"ip" json:"ip"`
 }
 
 func ProbeList(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	collection := db.MG.CC("prob", "probes")
-
-	cursor, err := collection.Find(ctx, bson.M{})
+	probes, err := db.GetPingConfig()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取探针列表失败"})
 		return
 	}
-	defer cursor.Close(ctx)
-
-	var probes []Probe = make([]Probe, 0)
-	if err = cursor.All(ctx, &probes); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "解析探针数据失败"})
-		return
+	fmt.Println("get probes: ", probes.Nodes, err)
+	if probes.Nodes == nil {
+		probes.Nodes = []db.PingNode{}
 	}
-
-	c.JSON(http.StatusOK, probes)
+	// data, _ := json.Marshal(probes.Nodes)
+	c.JSON(http.StatusOK, probes.Nodes)
 }
 
 func ProbeAdd(c *gin.Context) {
@@ -53,41 +47,28 @@ func ProbeAdd(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求数据"})
 		return
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	collection := db.MG.CC("prob", "probes")
-
-	result, err := collection.InsertOne(ctx, newProbe)
+	node, err := db.AddPingNode(newProbe.Name, newProbe.IP)
 	if err != nil {
+		fmt.Println("添加探针失败: ", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "添加探针失败"})
 		return
 	}
-
-	newProbe.ID = result.InsertedID.(primitive.ObjectID).Hex()
-	c.JSON(http.StatusCreated, newProbe)
+	c.JSON(http.StatusCreated, node)
 }
 
 func ProbeDelete(c *gin.Context) {
 	id := c.Param("id")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	collection := db.MG.CC("prob", "probes")
-
-	result, err := collection.DeleteOne(ctx, bson.M{"id": id})
+	if id == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求数据"})
+		return
+	}
+	//convert id to int
+	idInt, err := strconv.Atoi(id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "删除探针失败"})
+		c.JSON(http.StatusOK, gin.H{"error": "无效的探针ID"})
 		return
 	}
-
-	if result.DeletedCount == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "未找到指定探针"})
-		return
-	}
-
+	db.RemovePingNode(db.PingNode{ID: idInt})
 	c.JSON(http.StatusOK, gin.H{"message": "探针删除成功"})
 }
 
