@@ -51,6 +51,7 @@ type ServerStaticData struct {
 	DiskTotal      string    `json:"diskTotal" bson:"diskTotal"`
 	UpDateTime     string    `json:"upDateTime" bson:"upDateTime"`
 	LastReportTime time.Time `json:"lastReportTime" bson:"lastReportTime"`
+	Version        string    `json:"version" bson:"version"`
 }
 
 var (
@@ -83,13 +84,24 @@ func HandleDynamicReport(c *gin.Context) {
 	data.Timestamp = time.Now()
 
 	// 插入数据到 MongoDB
-	err = insertDynamicData(data)
+	err = upsertDynamicData(data)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to insert data"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Data received and stored successfully"})
+}
+
+func upsertDynamicData(data ServerDynamicData) error {
+	collection := db.MG.CC("vps", "dynamic")
+
+	filter := bson.M{"id": data.ID}
+	update := bson.M{"$set": data}
+	opts := options.Update().SetUpsert(true)
+
+	_, err := collection.UpdateOne(context.TODO(), filter, update, opts)
+	return err
 }
 
 func insertDynamicData(data ServerDynamicData) error {
